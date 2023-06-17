@@ -1,0 +1,115 @@
+################################################################################################
+#   File           : main_Makefile
+#   Author         : Mateusz Bator
+#   Brief          : This file contains simple system for building embedded applications
+#					 with flashing process for SMT32F3 microcontroller
+#	#########################################################################################
+#   Copyright (c) Bator Mateusz 
+#   email: deorli@o2.pl
+#   
+#   All rights reserved.
+#   
+#   This software is licensed under terms that can be found in the LICENSE file
+#   in the root directory of this software component.
+################################################################################################
+
+# Include Makefile configuration 
+include Makefiles/config_Makefile
+
+# Include Makefiles for the basic projet structure: Application, Common, Drivers and External.
+include source/app/Makefile
+include source/common/Makefile
+include source/drivers/Makefile
+include external/Makefile
+
+# Application name
+TARGET = ServoMotor
+
+################################################################################################
+# ADDITIONAL SETTINGS RELATIVE TO THE INPUT PARAMETER
+################################################################################################
+#
+ifeq ($(MAKECMDGOALS),$(filter $(MAKECMDGOALS), debug flash-debug clean-debug))
+
+C_DEFS += -DDEBUG
+
+BUILD_DIR = .build_debug
+
+else
+
+BUILD_DIR = .build
+
+endif
+
+# Flags to add debug information in out files
+ifeq ($(MAKECMDGOALS),$(filter $(MAKECMDGOALS), debug flash-debug))
+
+CFLAGS += -g -gdwarf-2
+
+endif
+
+################################################################################################
+# BUILD THE APPLICATION
+################################################################################################
+# List of C objects files
+OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
+vpath %.c $(sort $(dir $(C_SOURCES)))
+
+# List of ASM objects files
+OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
+vpath %.s $(sort $(dir $(ASM_SOURCES)))
+
+# Create an object file from soruce files
+$(BUILD_DIR)/%.o: %.c $(HEADERS) Makefile | $(BUILD_DIR) 
+	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
+
+# Create an object file from ASM files
+$(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
+	$(AS) -c $(CFLAGS) $< -o $@
+
+# Build .elf file
+$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) Makefile
+	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
+	$(SZ) $@
+
+# Build .hex file from .elf
+$(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+	$(HEX) $< $@
+
+# Build .bin file from .elf
+$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+	$(BIN) $< $@	
+
+$(BUILD_DIR):
+	mkdir $@	
+
+################################################################################################
+#TARGETS:
+################################################################################################
+# Deleting compilation files
+clean-build clean-debug:
+	-rm -fR $(BUILD_DIR)
+
+# Compile app without and with debug information
+app debug: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
+
+# Flash app without debug information
+flash: clean-build flash-process reset
+
+# Flash app with debug information
+flash-debug: clean-debug flash-process reset
+
+# Flashing process
+flash-process: app
+	openocd \
+	-f interface/stlink.cfg -f target/stm32f3x.cfg \
+	-c "init" -c "reset halt" \
+	-c "flash write_image erase $(BUILD_DIR)/$(TARGET).bin 0x08000000" \
+	-c "verify_image $(BUILD_DIR)/$(TARGET).bin" -c "reset" -c "shutdown"
+.PHONY : flash
+
+# Microcontroller reset
+reset:
+	openocd \
+	-f interface/stlink.cfg -f target/stm32f3x.cfg \
+	-c "init" -c "reset" -c "shutdown"

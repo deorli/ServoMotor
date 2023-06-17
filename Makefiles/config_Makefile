@@ -1,0 +1,110 @@
+################################################################################################
+#   File           : config_Makefile
+#   Author         : Mateusz Bator
+#   Brief          : This file contains configuration for building embedded applications
+#					 with flashing process for SMT32F3 microcontroller
+#	#########################################################################################
+#   Copyright (c) Bator Mateusz 
+#   email: deorli@o2.pl
+#   
+#   All rights reserved.
+#   
+#   This software is licensed under terms that can be found in the LICENSE file
+#   in the root directory of this software component.
+################################################################################################
+
+# Optimization
+OPT = -Og
+
+################################################################################################
+# C FLAGS
+################################################################################################
+# cpu
+CPU = -mcpu=cortex-m4
+
+# fpu
+FPU = -mfpu=fpv4-sp-d16
+
+# float-abi
+FLOAT-ABI = -mfloat-abi=hard
+
+# mcu
+MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+
+################################################################################################
+# DEFINES
+################################################################################################
+# C defines
+C_DEFS =  \
+-DSTM32F303x8 \
+# -DUSE_HAL_DRIVER \
+
+# AS defines
+AS_DEFS =
+
+################################################################################################
+# SOURCE, HEADER FILES AND INCLUDES
+################################################################################################
+#C source files
+C_SOURCES := 
+
+#ASM sources
+ASM_SOURCES :=
+
+#C header sources
+C_INCLUDES := 
+
+#C header files
+HEADERS = \
+	$(SOURCES:.c=.h)	\
+	external/CMSIS//stm32f303x8.h
+
+# AS includes
+AS_INCLUDES = \
+
+################################################################################################
+# COMPILE FLAGS
+################################################################################################
+# Compile gcc flags
+ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+
+# Generate dependency information
+CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
+
+################################################################################################
+# LD FLAGS
+################################################################################################
+# libraries
+LIBS = -lc -lm -lnosys 
+LIBDIR = 
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS)
+
+################################################################################################
+# BINARIES
+################################################################################################
+PREFIX = arm-none-eabi-
+# The gcc compiler bin path can be either defined in make command
+# via GCC_PATH variable (> make GCC_PATH=xxx) either it can be
+# added to the PATH environment variable.
+ifdef GCC_PATH
+CC = $(GCC_PATH)/$(PREFIX)gcc
+AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
+CP = $(GCC_PATH)/$(PREFIX)objcopy
+SZ = $(GCC_PATH)/$(PREFIX)size
+else
+CC = $(PREFIX)gcc
+AS = $(PREFIX)gcc -x assembler-with-cpp
+CP = $(PREFIX)objcopy
+SZ = $(PREFIX)size
+endif
+HEX = $(CP) -O ihex
+BIN = $(CP) -O binary -S
+#LST = arm-none-eabi-objdump -D -marm
+
+################################################################################################
+# FLASH LINK
+################################################################################################
+# Link script
+LDSCRIPT = STM32F303K8Tx_FLASH.ld
