@@ -12,6 +12,12 @@
 #   in the root directory of this software component.
 ################################################################################################
 
+################################################################################################
+#TODO:
+#	- Add protection against flashing a program that is too large
+#	- Add static analysis
+################################################################################################
+
 # When the first parameter is empty (e.g. make)
 ifeq ($(MAKECMDGOALS),$(filter $(MAKECMDGOALS),))
 print_information: information
